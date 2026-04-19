@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AI Chatbot Brain</title>
+<style>
+body { font-family: Arial; text-align: center; }
+canvas { border: 1px solid black; margin-bottom: 10px; }
+#chat { margin: 10px; min-height: 100px; }
+</style>
+</head>
+<body>
+
+<h2>🧠 AI Chatbot (with visible brain)</h2>
+
+<canvas id="brain" width="800" height="400"></canvas><br>
+Train first, before chatting or unexpected
+<br>responses will happen. (Recommended epochs: 4000)
+<br>
+Epochs: <input type="number" id="epochs" value="4000">
+<button onclick="train()">Train</button>
+
+<div id="chat"></div>
+<input id="input" placeholder="Say something">
+<button onclick="send()">Send</button>
+
+<script>
+// -------- DATA --------
+let trainingData = [
+    ["hello", "hi"],
+    ["hi", "hello"],
+    ["how are you", "i am fine"],
+    ["who made you", "i was made by AmadOS."],
+    ["what are you", "i am an ancestor of all ai chatbots today."],
+    ["what are you doing", "nothing, just scanning your input, think, and responding."],
+    ["do you have github", "no, i currently don't. But maybe soon."],
+    ["how do i get code of you", "i'm guessing CJM4 would say no."],
+    ["source code", "nope."],
+    ["what's your purpose", "i don't... exactly know. Maybe an experiment."],
+    ["do you know ", "well i do not but maybe my owner does. (CJM4)"],
+    ["make me a ", "i don't know how to make that yet."],
+    ["who is gay", "maybe your dad."],
+    ["tell me jokes", "i cannot tell jokes since i do not have a list for that."],
+    ["bye", "goodbye."]
+];
+
+let neuronPositions = {
+    input: [],
+    h1: [],
+    h2: [],
+    out: []
+};
+
+let lastHidden1 = [];
+let lastHidden2 = [];
+let lastOutput = [];
+
+// Build vocab
+let vocab = [...new Set(trainingData.flatMap(p => p[0].split(" ")))];
+let responses = [...new Set(trainingData.map(p => p[1]))];
+
+// -------- TEXT --------
+function clean(text) {
+    return text.toLowerCase().replace(/[^\w\s]/g, "");
+}
+
+function vectorize(text) {
+    let words = clean(text).split(" ");
+    return vocab.map(w => words.includes(w) ? 1 : 0);
+}
+
+function responseVector(resp) {
+    return responses.map(r => r === resp ? 1 : 0);
+}
+
+// -------- NETWORK --------
+let inputSize = vocab.length;
+let hiddenSize = 14;
+let hiddenSize2 = 8
+let outputSize = responses.length;
+
+let W1 = Array.from({length: inputSize}, () =>
+    Array.from({length: hiddenSize}, () => Math.random()*2-1)
+);
+
+let W2 = Array.from({length: hiddenSize}, () =>
+    Array.from({length: hiddenSize2}, () => Math.random()*2-1)
+);
+
+let W3 = Array.from({length: hiddenSize2}, () =>
+    Array.from({length: outputSize}, () => Math.random()*2-1)
+);
+
+function sigmoid(x) {
+    return 1 / (1 + Math.exp(-x));
+}
+
+function sigmoidDeriv(x) {
+    return x * (1 - x);
+}
+
+// -------- TRAIN --------
+async function train() {
+    let epochs = parseInt(document.getElementById("epochs").value);
+    typeResponse("I'm ready, type something.")
+
+    for (let e = 0; e < epochs; e++) {
+        for (let [inpText, outText] of trainingData) {
+
+            let inp = vectorize(inpText);
+            let target = responseVector(outText);
+
+            // ---- FORWARD ----
+            let hidden1 = W1[0].map((_, j) =>
+                sigmoid(inp.reduce((sum, v, i) => sum + v * W1[i][j], 0))
+            );
+
+            let hidden2 = W2[0].map((_, j) =>
+                sigmoid(hidden1.reduce((sum, v, i) => sum + v * W2[i][j], 0))
+            );
+
+            let output = W3[0].map((_, j) =>
+                sigmoid(hidden2.reduce((sum, v, i) => sum + v * W3[i][j], 0))
+            );
+            
+            
+            lastHidden1 = hidden1;
+            lastHidden2 = hidden2;
+            lastOutput = output;
+
+            // ---- BACKWARD ----
+            let dOutput = output.map((o, i) =>
+                (target[i] - o) * sigmoidDeriv(o)
+            );
+
+            let dHidden2 = hidden2.map((h, i) =>
+                dOutput.reduce((sum, d, j) => sum + d * W3[i][j], 0) * sigmoidDeriv(h)
+            );
+
+            let dHidden1 = hidden1.map((h, i) =>
+                dHidden2.reduce((sum, d, j) => sum + d * W2[i][j], 0) * sigmoidDeriv(h)
+            );
+
+            // ---- UPDATE W3 ----
+            for (let i = 0; i < hiddenSize2; i++) {
+                for (let j = 0; j < outputSize; j++) {
+                    W3[i][j] += 0.1 * dOutput[j] * hidden2[i];
+                }
+            }
+
+            // ---- UPDATE W2 ----
+            for (let i = 0; i < hiddenSize; i++) {
+                for (let j = 0; j < hiddenSize2; j++) {
+                    W2[i][j] += 0.1 * dHidden2[j] * hidden1[i];
+                }
+            }
+
+            // ---- UPDATE W1 ----
+            for (let i = 0; i < inputSize; i++) {
+                for (let j = 0; j < hiddenSize; j++) {
+                    W1[i][j] += 0.1 * dHidden1[j] * inp[i];
+                }
+            }
+        }
+    }
+
+    drawBrain();
+}
+
+// -------- UTILS --------
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// -------- THINKING --------
+let thinkingLine = null;
+
+async function thinkingAnimation() {
+    let chat = document.getElementById("chat");
+
+    thinkingLine = document.createElement("div");
+    chat.appendChild(thinkingLine);
+
+    let steps = ["Thinking.", "Thinking..", "Thinking..."];
+
+    for (let s of steps) {
+        thinkingLine.innerText = "Bot: " + s;
+        await sleep(400);
+    }
+
+    chat.removeChild(thinkingLine);
+}
+
+// flow
+
+async function animateFlow(from, to){
+    let canvas = document.getElementById("brain");
+    let ctx = canvas.getContext("2d");
+    let steps = 20;
+
+    for (let s = 0; s <= steps; s++) {
+        drawBrain(lastHidden1, lastHidden2, lastOutput);
+
+        let t = s / steps;
+
+        for (let a of neuronPositions[from]) {
+            for (let b of neuronPositions[to]) {
+
+                let x = a.x + (b.x - a.x) * t;
+                let y = a.y + (b.y - a.y) * t;
+
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, 2*Math.PI);
+                ctx.fillStyle = "blue";
+                ctx.fill();
+            }
+        }
+
+        await sleep(20);
+    }
+}
+
+// -------- TYPE EFFECT --------
+async function typeResponse(text) {
+    let chat = document.getElementById("chat");
+    let line = document.createElement("div");
+    chat.appendChild(line);
+
+    let display = "Bot: ";
+    for (let char of text) {
+        display += char;
+        line.innerText = display;
+        await sleep(40);
+    }
+}
+
+// -------- CHAT --------
+async function send() {
+    let text = document.getElementById("input").value;
+    let inp = vectorize(text);
+
+    addChat("You: " + text);
+
+    if (inp.reduce((a,b)=>a+b,0) === 0) {
+        await thinkingAnimation();
+        await typeResponse("I don't understand.");
+        return;
+    }
+
+    await thinkingAnimation();
+
+let hidden1 = W1[0].map((_, j) =>
+    sigmoid(inp.reduce((sum, v, i) => sum + v * W1[i][j], 0))
+);
+
+let hidden2 = W2[0].map((_, j) =>
+    sigmoid(hidden1.reduce((sum, v, i) => sum + v * W2[i][j], 0))
+);
+
+let output = W3[0].map((_, j) =>
+    sigmoid(hidden2.reduce((sum, v, i) => sum + v * W3[i][j], 0))
+);
+
+    await drawStep(hidden1, hidden2, output);
+    
+    await animateFlow("input", "h1");
+    await animateFlow("h1", "h2");
+    await animateFlow("h2", "out");
+
+    let maxIndex = output.indexOf(Math.max(...output));
+
+    await typeResponse(responses[maxIndex]);
+}
+
+// -------- UI --------
+function addChat(text) {
+    let div = document.getElementById("chat");
+    div.innerHTML += text + "<br>";
+}
+
+// -------- DRAW --------
+async function drawStep(hidden1, hidden2, output) {
+    drawBrain(hidden1 || [], hidden2 || [], output || []);
+    await sleep(500);
+}
+
+
+
+function drawBrain(hidden1=[], hidden2=[], output=[]) {
+    let canvas = document.getElementById("brain");
+    let ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let inputY = 40;
+    let hidden1Y = 150;
+    let hidden2Y = 250;
+    let outputY = 350;
+
+    let spacing = 780 / (Math.max(inputSize, hiddenSize, hiddenSize2, outputSize) + 1);
+
+    function drawLayer(count, y, values = [], storeKey) {
+    let layerWidth = spacing * (count - 1);
+    let startX = (canvas.width - layerWidth) / 2;
+
+    neuronPositions[storeKey] = [];
+
+    for (let i = 0; i < count; i++) {
+        let x = startX + i * spacing;
+        let val = (values[i] !== undefined) ? values[i] : 0.5;
+
+        neuronPositions[storeKey].push({x, y});
+
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, 2 * Math.PI);
+        ctx.fillStyle = `rgb(${val * 255},0,0)`;
+        ctx.fill();
+    }
+}
+
+    drawLayer(inputSize, inputY, [], "input");
+    drawLayer(hiddenSize, hidden1Y, hidden1, "h1");
+    drawLayer(hiddenSize2, hidden2Y, hidden2, "h2");
+    drawLayer(outputSize, outputY, output, "out");
+
+    function connect(fromCount, toCount, y1, y2) {
+    let fromWidth = spacing * (fromCount - 1);
+    let toWidth = spacing * (toCount - 1);
+
+    let fromStart = (canvas.width - fromWidth) / 2;
+    let toStart = (canvas.width - toWidth) / 2;
+
+    for (let i = 0; i < fromCount; i++) {
+        for (let j = 0; j < toCount; j++) {
+            ctx.beginPath();
+            ctx.moveTo(fromStart + i * spacing, y1);
+            ctx.lineTo(toStart + j * spacing, y2);
+            ctx.strokeStyle = "rgba(0,0,0,0.2)";
+            ctx.stroke();
+        }
+    }
+}
+
+    ctx.fillStyle = "black";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+
+    // Input label
+    ctx.fillText("Input", canvas.width / 2, inputY - 25);
+
+    // Hidden layers
+    ctx.fillText("Hidden 1", canvas.width / 2, hidden1Y - 25);
+    ctx.fillText("Hidden 2", canvas.width / 2, hidden2Y - 25);
+
+    // Output
+    ctx.fillText("Output", canvas.width / 2, outputY - 25);
+
+    connect(inputSize, hiddenSize, inputY, hidden1Y);
+    connect(hiddenSize, hiddenSize2, hidden1Y, hidden2Y);
+    connect(hiddenSize2, outputSize, hidden2Y, outputY);
+}
+
+// initial draw
+drawBrain();
+</script>
+
+</body>
+</html>
