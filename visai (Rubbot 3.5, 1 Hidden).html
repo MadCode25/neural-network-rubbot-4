@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AI Chatbot Brain (1 Hidden Layer)</title>
+<style>
+body { font-family: Arial; text-align: center; }
+canvas { border: 1px solid black; margin-bottom: 10px; background: #fff; }
+#chat { margin: 10px; min-height: 100px; border: 1px solid #ccc; padding: 10px; text-align: left; max-width: 500px; margin: auto; }
+</style>
+</head>
+<body>
+
+<h2>AI Chatbot (1 Hidden Layer)</h2>
+
+<canvas id="brain" width="800" height="400"></canvas><br>
+Train first, before chatting or unexpected responses will happen.
+<br><br>
+
+Epochs: <input type="number" id="epochs" value="4000">
+<button onclick="train()">Train</button>
+<br><br>
+<p>Set number of neurons of Hidden 1</p>
+<input id="h1v" type="number" placeholder="Hidden 1" value="15">
+<button onclick="updateHiddenValues()">Update</button>
+<br><br>
+<div style="width:300px; border:1px solid black; margin:auto;">
+  <div id="stressBar" style="height:20px; width:0%; background:red;"></div>
+</div>
+<p id="stressText">Current Stress: 0%</p>
+
+<div id="chat"></div>
+<input id="input" placeholder="Say something">
+<button onclick="send()">Send</button>
+
+<script>
+// -------- DATA --------
+let trainingData = [
+    ["hello", "hi"],
+    ["hi", "hello"],
+    ["how are you", "i am fine"],
+    ["who made you", "i was made by AmadOS."],
+    ["what are you", "i am an ancestor of all ai chatbots today."],
+    ["what are you doing", "nothing, just scanning your input, think, and responding."],
+    ["what do you do", "respond."],
+    ["who is better or ", "depends."],
+    ["you're cool", "thanks."],
+    ["who's the owner of AmadOS", "owner was: CJM4"],
+    ["do you have github", "no, i currently don't. But maybe soon."],
+    ["what is ", "i do not know, since i can't search the web."],
+    ["how do i get code of you", "i'm guessing CJM4 would say no."],
+    ["source code", "nope."],
+    ["how stressed are you", "if you mean in my terms, i don't know, check the bottom. But if in\nreal brains, i don't have that kind of stress."],
+    ["what is brain stress", "in my terms, it just determines how saturated/overworked my neurons are.\nBut if in real brain terms, it's just anxiety i think."],
+    ["what's your purpose", "i don't... exactly know. Maybe an experiment."],
+    ["do you know ", "well i do not but maybe my owner does. (CJM4)"],
+    ["make me a ", "i don't know how to make that yet."],
+    ["who is gay", "maybe your dad."],
+    ["tell me jokes", "i cannot tell jokes since i do not have a list for that."],
+    ["bye", "goodbye."]
+];
+
+let vocab = [...new Set(trainingData.flatMap(p => p[0].split(" ")))];
+let responses = [...new Set(trainingData.map(p => p[1]))];
+
+let inputSize = vocab.length;
+let outputSize = responses.length;
+let h1v = parseInt(document.getElementById("h1v").value);
+let hiddenSize = h1v;
+
+let W1, W2; // Only two weight sets for one hidden layer
+let lastHidden1 = [];
+let lastOutput = [];
+let neuronPositions = { input: [], h1: [], out: [] };
+
+function initWeights() {
+    // Input to Hidden
+    W1 = Array.from({length: inputSize}, () =>
+        Array.from({length: hiddenSize}, () => Math.random()*2-1)
+    );
+    // Hidden to Output
+    W2 = Array.from({length: hiddenSize}, () =>
+        Array.from({length: outputSize}, () => Math.random()*2-1)
+    );
+}
+
+// -------- MATH --------
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+function sigmoidDeriv(x) { return x * (1 - x); }
+
+function vectorize(text) {
+    let words = text.toLowerCase().replace(/[^\w\s]/g, "").split(" ");
+    return vocab.map(w => words.includes(w) ? 1 : 0);
+}
+
+function responseVector(resp) {
+    return responses.map(r => r === resp ? 1 : 0);
+}
+
+function layerStress(layer) {
+    if(!layer.length) return 0;
+    return layer.reduce((sum, val) => sum + Math.abs(val - 0.5) * 2, 0) / layer.length;
+}
+
+// -------- UI & BRAIN --------
+function updateHiddenValues(){
+    hiddenSize = parseInt(document.getElementById("h1v").value);
+    initWeights();
+    drawBrain();
+}
+
+function updateStressUI(stress) {
+    let percent = Math.floor(stress * 100);
+    let bar = document.getElementById("stressBar");
+    bar.style.width = percent + "%";
+    bar.style.background = percent < 30 ? "green" : percent < 70 ? "orange" : "red";
+    document.getElementById("stressText").innerText = "Stress: " + percent + "%";
+}
+
+// -------- TRAIN --------
+async function train() {
+    let epochs = parseInt(document.getElementById("epochs").value);
+    addChat("System: Training started...");
+
+    for (let e = 0; e < epochs; e++) {
+        for (let [inpText, outText] of trainingData) {
+            let inp = vectorize(inpText);
+            let target = responseVector(outText);
+
+            // FORWARD
+            let hidden1 = W1[0].map((_, j) =>
+                sigmoid(inp.reduce((sum, v, i) => sum + v * W1[i][j], 0))
+            );
+            let output = W2[0].map((_, j) =>
+                sigmoid(hidden1.reduce((sum, v, i) => sum + v * W2[i][j], 0))
+            );
+
+            lastHidden1 = hidden1;
+            lastOutput = output;
+
+            // BACKWARD
+            let dOutput = output.map((o, i) => (target[i] - o) * sigmoidDeriv(o));
+            let dHidden1 = hidden1.map((h, i) => 
+                dOutput.reduce((sum, d, j) => sum + d * W2[i][j], 0) * sigmoidDeriv(h)
+            );
+
+            // UPDATE
+            for (let i = 0; i < hiddenSize; i++) {
+                for (let j = 0; j < outputSize; j++) {
+                    W2[i][j] += 0.1 * dOutput[j] * hidden1[i];
+                }
+            }
+            for (let i = 0; i < inputSize; i++) {
+                for (let j = 0; j < hiddenSize; j++) {
+                    W1[i][j] += 0.1 * dHidden1[j] * inp[i];
+                }
+            }
+        }
+
+        if (e % 100 === 0) {
+            updateStressUI(layerStress(lastHidden1));
+            drawBrain(lastHidden1, lastOutput);
+            await new Promise(r => setTimeout(r, 1));
+        }
+    }
+    addChat("Bot: Training done. Talk to me!");
+}
+
+async function send() {
+    let text = document.getElementById("input").value;
+    let inp = vectorize(text);
+    addChat("You: " + text);
+
+    // Forward pass for prediction
+    let hidden1 = W1[0].map((_, j) => sigmoid(inp.reduce((sum, v, i) => sum + v * W1[i][j], 0)));
+    let output = W2[0].map((_, j) => sigmoid(hidden1.reduce((sum, v, i) => sum + v * W2[i][j], 0)));
+
+    drawBrain(hidden1, output);
+    let maxIndex = output.indexOf(Math.max(...output));
+    addChat("Bot: " + responses[maxIndex]);
+}
+
+function addChat(text) {
+    let div = document.getElementById("chat");
+    div.innerHTML += text + "<br>";
+    div.scrollTop = div.scrollHeight;
+}
+
+function drawBrain(hidden1=[], output=[]) {
+    let canvas = document.getElementById("brain");
+    let ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let inputY = 60;
+    let hiddenY = 200;
+    let outputY = 340;
+
+    function drawLayer(count, y, values, key) {
+        let spacing = Math.min(30, (canvas.width - 40) / count);
+        let startX = (canvas.width - (spacing * (count - 1))) / 2;
+        neuronPositions[key] = [];
+        for (let i = 0; i < count; i++) {
+            let x = startX + i * spacing;
+            let val = values[i] || 0.5;
+            neuronPositions[key].push({x, y});
+            ctx.beginPath();
+            ctx.arc(x, y, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = `rgb(${val * 255}, 0, 0)`;
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    drawLayer(inputSize, inputY, [], "input");
+    drawLayer(hiddenSize, hiddenY, hidden1, "h1");
+    drawLayer(outputSize, outputY, output, "out");
+
+    // Draw Connections
+    ctx.globalAlpha = 0.1;
+    const connect = (k1, k2) => {
+        neuronPositions[k1].forEach(p1 => {
+            neuronPositions[k2].forEach(p2 => {
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            });
+        });
+    }
+    connect("input", "h1");
+    connect("h1", "out");
+    ctx.globalAlpha = 1.0;
+
+    ctx.fillStyle = "black";
+    ctx.fillText("INPUT", 10, inputY);
+    ctx.fillText("HIDDEN", 10, hiddenY);
+    ctx.fillText("OUTPUT", 10, outputY);
+}
+
+initWeights();
+drawBrain();
+</script>
+
+</body>
+</html>
