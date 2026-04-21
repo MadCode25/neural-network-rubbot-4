@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>AI Chatbot Brain (1 Hidden Layer)</title>
 <style>
-body { font-family: Arial; text-align: center; }
+body { font-family: Arial; text-align: center; background-color: white;}
 canvas { border: 1px solid black; margin-bottom: 10px; background: #fff; }
 #chat { margin: 10px; min-height: 100px; border: 1px solid #ccc; padding: 10px; text-align: left; max-width: 500px; margin: auto; }
 </style>
@@ -29,7 +29,7 @@ Epochs: <input type="number" id="epochs" value="4000">
 </div>
 <p id="stressText">Current Stress: 0%</p>
 
-<div id="chat"></div>
+<div id="chat" style="border: none;"></div>
 <input id="input" placeholder="Say something">
 <button onclick="send()">Send</button>
 
@@ -40,6 +40,7 @@ let trainingData = [
     ["hi", "hello"],
     ["how are you", "i am fine"],
     ["who made you", "i was made by AmadOS."],
+    ["who is your owner", "CJM4(FB)/MadCode25(GITHUB)"],
     ["what are you", "i am an ancestor of all ai chatbots today."],
     ["what are you doing", "nothing, just scanning your input, think, and responding."],
     ["what do you do", "respond."],
@@ -48,8 +49,11 @@ let trainingData = [
     ["who's the owner of AmadOS", "owner was: CJM4"],
     ["do you have github", "no, i currently don't. But maybe soon."],
     ["what is ", "i do not know, since i can't search the web."],
+    ["what is your name","i do not have a name, but for my model it's Rubbot 3.6 (v0.1.5)."],
     ["how do i get code of you", "i'm guessing CJM4 would say no."],
     ["source code", "nope."],
+    ["what's your github", "https://github.com/MadCode25/neural-network-rubbot-4"],
+    ["what does mean", "i dunno."],
     ["how stressed are you", "if you mean in my terms, i don't know, check the bottom. But if in\nreal brains, i don't have that kind of stress."],
     ["what is brain stress", "in my terms, it just determines how saturated/overworked my neurons are.\nBut if in real brain terms, it's just anxiety i think."],
     ["what's your purpose", "i don't... exactly know. Maybe an experiment."],
@@ -166,6 +170,10 @@ async function train() {
     addChat("Bot: Training done. Talk to me!");
 }
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function send() {
     let text = document.getElementById("input").value;
     let inp = vectorize(text);
@@ -177,7 +185,29 @@ async function send() {
 
     drawBrain(hidden1, output);
     let maxIndex = output.indexOf(Math.max(...output));
+    await thinkingAnimation()
     addChat("Bot: " + responses[maxIndex]);
+}
+
+
+
+// -------- THINKING --------
+let thinkingLine = null;
+
+async function thinkingAnimation() {
+    let chat = document.getElementById("chat");
+
+    thinkingLine = document.createElement("div");
+    chat.appendChild(thinkingLine);
+
+    let steps = ["Thinking.", "Thinking..", "Thinking..."];
+
+    for (let s of steps) {
+        thinkingLine.innerText = "Bot: " + s;
+        await sleep(400);
+    }
+
+    chat.removeChild(thinkingLine);
 }
 
 function addChat(text) {
@@ -204,19 +234,18 @@ function drawBrain(hidden1=[], output=[]) {
             let val = values[i] || 0.5;
             neuronPositions[key].push({x, y});
             ctx.beginPath();
-            ctx.arc(x, y, 10, 0, 2 * Math.PI);
+            ctx.arc(x, y, 12, 0, 2 * Math.PI);
             ctx.fillStyle = `rgb(${val * 255}, 0, 0)`;
             ctx.fill();
-            ctx.stroke();
         }
     }
 
-    drawLayer(inputSize, inputY, [], "input");
+    drawLayer(inputSize/6, inputY, [], "input");
     drawLayer(hiddenSize, hiddenY, hidden1, "h1");
-    drawLayer(outputSize, outputY, output, "out");
+    drawLayer(outputSize/6, outputY, output, "out");
 
     // Draw Connections
-    ctx.globalAlpha = 0.1;
+    ctx.globalAlpha = 0.3;
     const connect = (k1, k2) => {
         neuronPositions[k1].forEach(p1 => {
             neuronPositions[k2].forEach(p2 => {
@@ -232,9 +261,9 @@ function drawBrain(hidden1=[], output=[]) {
     ctx.globalAlpha = 1.0;
 
     ctx.fillStyle = "black";
-    ctx.fillText("INPUT", 10, inputY);
+    ctx.fillText(`INPUT (${inputSize} POSSIBLE ANSWERS)`, 10, inputY);
     ctx.fillText("HIDDEN", 10, hiddenY);
-    ctx.fillText("OUTPUT", 10, outputY);
+    ctx.fillText(`OUTPUT (CHOOSES ONE OF THE ${inputSize} RESPONSES)`, 10, outputY);
 }
 
 initWeights();
