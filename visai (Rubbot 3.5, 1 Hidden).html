@@ -19,6 +19,8 @@ Train first, before chatting or unexpected responses will happen.
 
 Epochs: <input type="number" id="epochs" value="4000">
 <button onclick="train()">Train</button>
+<br>
+Epochs Passed: <span id="epospad">0</span>
 <br><br>
 <p>Set number of neurons of Hidden 1</p>
 <input id="h1v" type="number" placeholder="Hidden 1" value="15">
@@ -54,7 +56,7 @@ let trainingData = [
     ["source code", "nope."],
     ["what's your github", "https://github.com/MadCode25/neural-network-rubbot-4"],
     ["what does mean", "i dunno."],
-    ["how stressed are you", "if you mean in my terms, i don't know, check the bottom. But if in\nreal brains, i don't have that kind of stress."],
+    ["how stressed are you", "if you mean in my terms, check the bottom. But if in\nreal brains, i don't have that kind of stress."],
     ["what is brain stress", "in my terms, it just determines how saturated/overworked my neurons are.\nBut if in real brain terms, it's just anxiety i think."],
     ["what's your purpose", "i don't... exactly know. Maybe an experiment."],
     ["do you know ", "well i do not but maybe my owner does. (CJM4)"],
@@ -125,8 +127,10 @@ function updateStressUI(stress) {
 async function train() {
     let epochs = parseInt(document.getElementById("epochs").value);
     addChat("System: Training started...");
+    let epochspassed = 0
 
     for (let e = 0; e < epochs; e++) {
+        epochspassed += 1
         for (let [inpText, outText] of trainingData) {
             let inp = vectorize(inpText);
             let target = responseVector(outText);
@@ -159,6 +163,7 @@ async function train() {
                     W1[i][j] += 0.1 * dHidden1[j] * inp[i];
                 }
             }
+            document.getElementById("epospad").textContent = epochspassed
         }
 
         if (e % 100 === 0) {
