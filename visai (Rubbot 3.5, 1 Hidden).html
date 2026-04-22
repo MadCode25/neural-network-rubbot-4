@@ -13,11 +13,11 @@ canvas { border: 1px solid black; margin-bottom: 10px; background: #fff; }
 
 <h2>AI Chatbot (1 Hidden Layer)</h2>
 
-<canvas id="brain" width="800" height="400"></canvas><br>
+<canvas id="brain" width="1500" height="400"></canvas><br>
 Train first, before chatting or unexpected responses will happen.
 <br><br>
 
-Epochs: <input type="number" id="epochs" value="4000">
+Epochs: <input type="number" id="epochs" value="8000">
 <button onclick="train()">Train</button>
 <br>
 Epochs Passed: <span id="epospad">0</span>
@@ -44,7 +44,14 @@ let trainingData = [
     ["who made you", "i was made by AmadOS."],
     ["who is your owner", "CJM4(FB)/MadCode25(GITHUB)"],
     ["what are you", "i am an ancestor of all ai chatbots today."],
+    ["what are epochs", "the number of times i fix my mistakes, or think."],
+    ["what are epoch", "the number of times i fix my mistakes, or think."],
     ["what are you doing", "nothing, just scanning your input, think, and responding."],
+    ["youre dumb", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
+    ["wrong", "oh, sorry, please tell me what it means."],
+    ["you're dumb", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
+    ["youre stupid", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
+    ["you're stupid", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
     ["what do you do", "respond."],
     ["who is better or ", "depends."],
     ["you're cool", "thanks."],
