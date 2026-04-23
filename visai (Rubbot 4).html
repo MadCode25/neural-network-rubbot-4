@@ -13,16 +13,36 @@ canvas { border: 1px solid black; margin-bottom: 10px; }
 
 <h2>🧠 AI Chatbot (with visible brain)</h2>
 
-<canvas id="brain" width="800" height="400"></canvas><br>
+<canvas id="brain" width="1200" height="400"></canvas><br>
 Train first, before chatting or unexpected
 <br>responses will happen. (Recommended epochs: 4000)
-<br>
+<br><br>
+
 Epochs: <input type="number" id="epochs" value="4000">
 <button onclick="train()">Train</button>
+<br><br>
+<p>Set number of neurons of Hidden 1 and 2</p>
+<input id="h1v" placeholder="Hidden 1" value="6">
+<input id="h2v" placeholder="Hidden 2" value="10">
+<button onclick="updateHiddenValues()">Update</button>
+<br><br>
+<div style="width:300px; border:1px solid black; margin:auto;">
+  <div id="stressBar" style="height:20px; width:0%; background:red;"></div>
+</div>
+<p id="stressText">Current Stress: 0%</p>
 
 <div id="chat"></div>
 <input id="input" placeholder="Say something">
 <button onclick="send()">Send</button>
+<br><br><br>
+<h3>What is this AI brain "stress"?</h3>
+<p>
+AI <i>brain stress</i> <strong>determines how “strained” the neural network is while processing information.</strong> It is calculated from how extreme the hidden neuron activations are. When activations stay near a balanced state (around 0.5), stress is low. When activations move toward extremes (0 or 1), stress increases, meaning <strong>the AI is making more rigid or overconfident decisions.</strong> High stress can indicate confusion, saturation, or limited flexibility in the network’s thinking process.
+</p>
+<h3>How do I reduce it?</h3>
+<p>
+To reduce AI brain stress, it is recommended to <strong>balance the number of hidden neurons</strong> and improve training conditions such as <strong>epoch count</strong> and <strong>data quality</strong>. The appropriate balance depends on the <strong>size of the network</strong> and how long it is trained (epochs). In general, <strong>increasing neuron capacity</strong> allows the model to distribute workload more effectively, while proper training duration ensures <strong>stable learning without overloading the system</strong>.
+</p>
 
 <script>
 // -------- DATA --------
@@ -31,11 +51,29 @@ let trainingData = [
     ["hi", "hello"],
     ["how are you", "i am fine"],
     ["who made you", "i was made by AmadOS."],
+    ["who is your owner", "CJM4(FB)/MadCode25(GITHUB)"],
     ["what are you", "i am an ancestor of all ai chatbots today."],
+    ["what are epochs", "the number of times i fix my mistakes, or think."],
+    ["what are epoch", "the number of times i fix my mistakes, or think."],
     ["what are you doing", "nothing, just scanning your input, think, and responding."],
+    ["youre dumb", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
+    ["wrong", "oh, sorry, please tell me what it means."],
+    ["you're dumb", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
+    ["youre stupid", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
+    ["you're stupid", "i'm not, i just use something called 'bag of words' to think.\nSo i only have a limited number of responses."],
+    ["what do you do", "respond."],
+    ["who is better or ", "depends."],
+    ["you're cool", "thanks."],
+    ["who's the owner of AmadOS", "owner was: CJM4"],
     ["do you have github", "no, i currently don't. But maybe soon."],
+    ["what is ", "i do not know, since i can't search the web."],
+    ["what is your name","i do not have a name, but for my model it's Rubbot 3.6 (v0.1.5)."],
     ["how do i get code of you", "i'm guessing CJM4 would say no."],
     ["source code", "nope."],
+    ["what's your github", "https://github.com/MadCode25/neural-network-rubbot-4"],
+    ["what does mean", "i dunno."],
+    ["how stressed are you", "if you mean in my terms, check the bottom. But if in\nreal brains, i don't have that kind of stress."],
+    ["what is brain stress", "in my terms, it just determines how saturated/overworked my neurons are.\nBut if in real brain terms, it's just anxiety i think."],
     ["what's your purpose", "i don't... exactly know. Maybe an experiment."],
     ["do you know ", "well i do not but maybe my owner does. (CJM4)"],
     ["make me a ", "i don't know how to make that yet."],
@@ -43,6 +81,8 @@ let trainingData = [
     ["tell me jokes", "i cannot tell jokes since i do not have a list for that."],
     ["bye", "goodbye."]
 ];
+
+let posibs = trainingData.length;
 
 let neuronPositions = {
     input: [],
@@ -54,6 +94,9 @@ let neuronPositions = {
 let lastHidden1 = [];
 let lastHidden2 = [];
 let lastOutput = [];
+
+let h1v = document.getElementById("h1v").value;
+let h2v = document.getElementById("h2v").value;
 
 // Build vocab
 let vocab = [...new Set(trainingData.flatMap(p => p[0].split(" ")))];
@@ -75,8 +118,8 @@ function responseVector(resp) {
 
 // -------- NETWORK --------
 let inputSize = vocab.length;
-let hiddenSize = 14;
-let hiddenSize2 = 8
+let hiddenSize = h1v;
+let hiddenSize2 = h2v;
 let outputSize = responses.length;
 
 let W1 = Array.from({length: inputSize}, () =>
@@ -99,72 +142,132 @@ function sigmoidDeriv(x) {
     return x * (1 - x);
 }
 
+// functions to determine neuron "stress"/overload/overwork
+function layerStress(layer) {
+    return layer.reduce((sum, val) =>
+        sum + Math.abs(val - 0.5) * 2, 0
+    ) / layer.length;
+}
+
+function updateStressUI(stress) {
+    let percent = Math.floor(stress * 100);
+
+    let bar = document.getElementById("stressBar");
+    let text = document.getElementById("stressText");
+
+    bar.style.width = percent + "%";
+
+    // color gradient
+    bar.style.background =
+        percent < 30 ? "green" :
+        percent < 70 ? "orange" :
+        "red";
+
+    text.innerText = "Stress: " + percent + "%";
+}
+
+// set value of hiddens
+function updateHiddenValues(){
+    h1v = parseInt(document.getElementById("h1v").value);
+    h2v = parseInt(document.getElementById("h2v").value);
+
+    hiddenSize = h1v;
+    hiddenSize2 = h2v;
+
+    // REBUILD WEIGHTS
+    W1 = Array.from({length: inputSize}, () =>
+        Array.from({length: hiddenSize}, () => Math.random()*2-1)
+    );
+
+    W2 = Array.from({length: hiddenSize}, () =>
+        Array.from({length: hiddenSize2}, () => Math.random()*2-1)
+    );
+
+    W3 = Array.from({length: hiddenSize2}, () =>
+        Array.from({length: outputSize}, () => Math.random()*2-1)
+    );
+
+    drawBrain(); // redraw with new structure
+}
+
 // -------- TRAIN --------
 async function train() {
     let epochs = parseInt(document.getElementById("epochs").value);
-    typeResponse("I'm ready, type something.")
+    typeResponse("Bot: I am currently being trained, please wait...");
 
-    for (let e = 0; e < epochs; e++) {
-        for (let [inpText, outText] of trainingData) {
+    let batchSize = 20;
 
-            let inp = vectorize(inpText);
-            let target = responseVector(outText);
+    for (let e = 0; e < epochs; e += batchSize) {
 
-            // ---- FORWARD ----
-            let hidden1 = W1[0].map((_, j) =>
-                sigmoid(inp.reduce((sum, v, i) => sum + v * W1[i][j], 0))
-            );
+        for (let b = 0; b < batchSize && (e + b) < epochs; b++) {
 
-            let hidden2 = W2[0].map((_, j) =>
-                sigmoid(hidden1.reduce((sum, v, i) => sum + v * W2[i][j], 0))
-            );
+            for (let [inpText, outText] of trainingData) {
 
-            let output = W3[0].map((_, j) =>
-                sigmoid(hidden2.reduce((sum, v, i) => sum + v * W3[i][j], 0))
-            );
-            
-            
-            lastHidden1 = hidden1;
-            lastHidden2 = hidden2;
-            lastOutput = output;
+                let inp = vectorize(inpText);
+                let target = responseVector(outText);
 
-            // ---- BACKWARD ----
-            let dOutput = output.map((o, i) =>
-                (target[i] - o) * sigmoidDeriv(o)
-            );
+                // ---- FORWARD ----
+                let hidden1 = W1[0].map((_, j) =>
+                    sigmoid(inp.reduce((sum, v, i) => sum + v * W1[i][j], 0))
+                );
 
-            let dHidden2 = hidden2.map((h, i) =>
-                dOutput.reduce((sum, d, j) => sum + d * W3[i][j], 0) * sigmoidDeriv(h)
-            );
+                let hidden2 = W2[0].map((_, j) =>
+                    sigmoid(hidden1.reduce((sum, v, i) => sum + v * W2[i][j], 0))
+                );
 
-            let dHidden1 = hidden1.map((h, i) =>
-                dHidden2.reduce((sum, d, j) => sum + d * W2[i][j], 0) * sigmoidDeriv(h)
-            );
+                let output = W3[0].map((_, j) =>
+                    sigmoid(hidden2.reduce((sum, v, i) => sum + v * W3[i][j], 0))
+                );
 
-            // ---- UPDATE W3 ----
-            for (let i = 0; i < hiddenSize2; i++) {
-                for (let j = 0; j < outputSize; j++) {
-                    W3[i][j] += 0.1 * dOutput[j] * hidden2[i];
+                lastHidden1 = hidden1;
+                lastHidden2 = hidden2;
+                lastOutput = output;
+
+                // ---- BACKWARD ----
+                let dOutput = output.map((o, i) =>
+                    (target[i] - o) * sigmoidDeriv(o)
+                );
+
+                let dHidden2 = hidden2.map((h, i) =>
+                    dOutput.reduce((sum, d, j) => sum + d * W3[i][j], 0) * sigmoidDeriv(h)
+                );
+
+                let dHidden1 = hidden1.map((h, i) =>
+                    dHidden2.reduce((sum, d, j) => sum + d * W2[i][j], 0) * sigmoidDeriv(h)
+                );
+
+                // ---- UPDATE ----
+                for (let i = 0; i < hiddenSize2; i++) {
+                    for (let j = 0; j < outputSize; j++) {
+                        W3[i][j] += 0.1 * dOutput[j] * hidden2[i];
+                    }
                 }
-            }
 
-            // ---- UPDATE W2 ----
-            for (let i = 0; i < hiddenSize; i++) {
-                for (let j = 0; j < hiddenSize2; j++) {
-                    W2[i][j] += 0.1 * dHidden2[j] * hidden1[i];
+                for (let i = 0; i < hiddenSize; i++) {
+                    for (let j = 0; j < hiddenSize2; j++) {
+                        W2[i][j] += 0.1 * dHidden2[j] * hidden1[i];
+                    }
                 }
-            }
 
-            // ---- UPDATE W1 ----
-            for (let i = 0; i < inputSize; i++) {
-                for (let j = 0; j < hiddenSize; j++) {
-                    W1[i][j] += 0.1 * dHidden1[j] * inp[i];
+                for (let i = 0; i < inputSize; i++) {
+                    for (let j = 0; j < hiddenSize; j++) {
+                        W1[i][j] += 0.1 * dHidden1[j] * inp[i];
+                    }
                 }
             }
         }
-    }
+
+        // update UI ONCE per batch
+        let stress1 = layerStress(lastHidden1);
+        let stress2 = layerStress(lastHidden2);
+        updateStressUI((stress1 + stress2) / 2);
+
+        // longer pause
+        await sleep(10);
+        }
 
     drawBrain();
+    typeResponse("Bot: I'm trained, type something.")
 }
 
 // -------- UTILS --------
@@ -286,6 +389,8 @@ async function drawStep(hidden1, hidden2, output) {
 
 
 
+
+
 function drawBrain(hidden1=[], hidden2=[], output=[]) {
     let canvas = document.getElementById("brain");
     let ctx = canvas.getContext("2d");
@@ -297,7 +402,7 @@ function drawBrain(hidden1=[], hidden2=[], output=[]) {
     let hidden2Y = 250;
     let outputY = 350;
 
-    let spacing = 780 / (Math.max(inputSize, hiddenSize, hiddenSize2, outputSize) + 1);
+    let spacing = 1200 / (Math.max(inputSize, hiddenSize, hiddenSize2, outputSize) + 1);
 
     function drawLayer(count, y, values = [], storeKey) {
     let layerWidth = spacing * (count - 1);
@@ -318,7 +423,7 @@ function drawBrain(hidden1=[], hidden2=[], output=[]) {
     }
 }
 
-    drawLayer(inputSize, inputY, [], "input");
+    drawLayer(1, inputY, [], "input");
     drawLayer(hiddenSize, hidden1Y, hidden1, "h1");
     drawLayer(hiddenSize2, hidden2Y, hidden2, "h2");
     drawLayer(outputSize, outputY, output, "out");
@@ -346,16 +451,16 @@ function drawBrain(hidden1=[], hidden2=[], output=[]) {
     ctx.textAlign = "center";
 
     // Input label
-    ctx.fillText("Input", canvas.width / 2, inputY - 25);
+    ctx.fillText(`Input (${posibs} possibilities and answers)`, canvas.width / 2, inputY - 25);
 
     // Hidden layers
     ctx.fillText("Hidden 1", canvas.width / 2, hidden1Y - 25);
     ctx.fillText("Hidden 2", canvas.width / 2, hidden2Y - 25);
 
     // Output
-    ctx.fillText("Output", canvas.width / 2, outputY - 25);
+    ctx.fillText(`Output (uses one of the ${posibs} answers)`, canvas.width / 2, outputY - 25);
 
-    connect(inputSize, hiddenSize, inputY, hidden1Y);
+    connect(1, hiddenSize, inputY, hidden1Y);
     connect(hiddenSize, hiddenSize2, hidden1Y, hidden2Y);
     connect(hiddenSize2, outputSize, hidden2Y, outputY);
 }
