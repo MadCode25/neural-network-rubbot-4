@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rubbot 4 — AmadOS</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
+  color: #111;
+  min-height: 100vh;
+}
+
+h2 {
+  text-align: center;
+  padding: 16px 0 8px;
+  font-size: 20px;
+}
+
+/* LAYOUT */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  max-width: 1100px;
+  margin: 0 auto;
+  gap: 0;
+  border: 1px solid #ccc;
+  background: #fff;
+  min-height: calc(100vh - 60px);
+}
+
+/* BRAIN SIDE */
+.brain-side {
+  padding: 16px;
+  border-right: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+canvas {
+  border: 1px solid #aaa;
+  background: #fff;
+  width: 100%;
+  height: 300px;
+  display: block;
+}
+
+.train-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.train-row label { font-size: 13px; }
+
+.train-row input[type=number] {
+  width: 80px;
+  padding: 5px 8px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: Arial;
+}
+
+button {
+  padding: 6px 16px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: Arial;
+}
+
+button:hover { background: #eee; }
+button:active { background: #ddd; }
+
+.note {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* CHAT SIDE */
+.chat-side {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px);
+}
+
+.chat-tabs {
+  display: flex;
+  border-bottom: 1px solid #ccc;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  cursor: pointer;
+  background: #f9f9f9;
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid #ccc;
+}
+
+.tab:last-child { border-right: none; }
+.tab.active { background: #fff; font-weight: bold; border-bottom: 2px solid #111; }
+
+/* CHAT TAB */
+#tab-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.msg { font-size: 13px; line-height: 1.5; }
+.msg-user { text-align: right; color: #111; }
+.msg-bot  { text-align: left;  color: #333; }
+.msg-user span { background: #e8e8ff; padding: 5px 10px; border-radius: 8px; display: inline-block; max-width: 85%; }
+.msg-bot  span { background: #f0f0f0; padding: 5px 10px; border-radius: 8px; display: inline-block; max-width: 85%; }
+.msg-thinking span { color: #888; font-style: italic; }
+
+.chat-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid #ccc;
+}
+
+.chat-input-row input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: Arial;
+  outline: none;
+}
+
+.chat-input-row button {
+  white-space: nowrap;
+}
+
+/* EDITOR TAB */
+#tab-editor {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  padding: 10px;
+  gap: 8px;
+}
+
+#tab-editor textarea {
+  flex: 1;
+  width: 100%;
+  font-family: Arial, monospace;
+  font-size: 12px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  padding: 8px;
+  resize: none;
+  outline: none;
+  line-height: 1.6;
+}
+
+.editor-note {
+  font-size: 11px;
+  color: #888;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* LOCK OVERLAY */
+#lock-overlay {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1;
+  padding: 20px;
+  text-align: center;
+}
+
+#lock-overlay p { font-size: 13px; color: #555; }
+
+#lock-overlay input {
+  width: 100%;
+  max-width: 220px;
+  padding: 7px 10px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: Arial;
+  text-align: center;
+  outline: none;
+}
+
+#lock-error {
+  font-size: 12px;
+  color: red;
+  min-height: 16px;
+}
+</style>
+</head>
+<body>
+
+<h2>🧠 Rubbot 4 &nbsp;<small style="font-size:13px;font-weight:normal;color:#888">by AmadOS</small></h2>
+
+<div class="layout">
+
+  <!-- BRAIN SIDE -->
+  <div class="brain-side">
+    <canvas id="brain" width="800" height="300"></canvas>
+    <p class="note">Train first before chatting. (Recommended: 4000 epochs)</p>
+    <div class="train-row">
+      <label>Epochs:</label>
+      <input type="number" id="epochs" value="4000" min="100" max="20000">
+      <button onclick="train()">Train</button>
+      <span id="train-status" style="font-size:12px;color:#888;"></span>
+    </div>
+    <div style="font-size:12px;color:#888;margin-top:4px;">
+      Pairs loaded: <strong id="stat-pairs">0</strong> &nbsp;·&nbsp;
+      Epochs done: <strong id="stat-epochs">0</strong>
+    </div>
+  </div>
+
+  <!-- CHAT SIDE -->
+  <div class="chat-side">
+
+    <div class="chat-tabs">
+      <button class="tab active" id="btn-chat" onclick="switchTab('chat')">Chat</button>
+      <button class="tab" id="btn-editor" onclick="switchTab('editor')">✏️ Edit Responses</button>
+    </div>
+
+    <!-- CHAT -->
+    <div id="tab-chat">
+      <div id="chat" style="overflow: scroll"></div>
+      <div class="chat-input-row">
+        <input id="input" placeholder="Say something..." onkeydown="if(event.key==='Enter') send()">
+        <button onclick="send()">Send</button>
+      </div>
+    </div>
+
+    <!-- LOCK -->
+    <div id="lock-overlay">
+      <p>🔒 This area is password protected.</p>
+      <input type="password" id="pw-input" placeholder="Enter password" onkeydown="if(event.key==='Enter') checkPw()">
+      <button onclick="checkPw()">Unlock</button>
+      <div id="lock-error"></div>
+      <button onclick="switchTab('chat')" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;">← Back to chat</button>
+    </div>
+
+    <!-- EDITOR -->
+    <div id="tab-editor">
+      <p class="editor-note">One response per line: <strong>trigger | response</strong><br>Lines starting with # are ignored.</p>
+      <textarea id="responses-editor" spellcheck="false"></textarea>
+      <div class="editor-actions">
+        <button onclick="applyResponses()">✅ Apply</button>
+        <button onclick="lockEditor()">🔒 Lock</button>
+      </div>
+      <div id="apply-status" style="font-size:12px;color:green;min-height:16px;"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// P A S S W O R D  I S  R I G H T  H E R E !
+const CORRECT_PW = "ihopeyoudontfindout";
+let editorUnlocked = false;
+
+const DEFAULT_RESPONSES = `# RUBBOT 4 RESPONSES — Edit freely!
+# Format: trigger | response
+# Lines with # are comments.
+
+hello | hi
+hi | hello
+how are you | i am fine
+who made you | i was made by AmadOS.
+what are you | i am an ancestor of all ai chatbots today.
+what are you doing | nothing, just scanning your input, think, and responding.
+do you have github | no, i currently don't. But maybe soon.
+how do i get code of you | i'm guessing CJM4 would say no.
+source code | nope.
+what's your purpose | i don't... exactly know. Maybe an experiment.
+do you know | well i do not but maybe my owner does. (CJM4)
+make me a | i don't know how to make that yet.
+who is gay | maybe your dad.
+tell me jokes | i cannot tell jokes since i do not have a list for that.
+bye | goodbye.`;
+
+// ---- TAB SWITCHING ----
+function switchTab(tab) {
+  if (tab === 'editor') {
+    if (!editorUnlocked) {
+      showLock();
+      return;
+    }
+    showEditor();
+    return;
+  }
+  // chat
+  document.getElementById('tab-chat').style.display = 'flex';
+  document.getElementById('lock-overlay').style.display = 'none';
+  document.getElementById('tab-editor').style.display = 'none';
+  document.getElementById('btn-chat').classList.add('active');
+  document.getElementById('btn-editor').classList.remove('active');
+}
+
+function showLock() {
+  document.getElementById('tab-chat').style.display = 'none';
+  document.getElementById('tab-editor').style.display = 'none';
+  document.getElementById('lock-overlay').style.display = 'flex';
+  document.getElementById('lock-error').textContent = '';
+  document.getElementById('pw-input').value = '';
+  setTimeout(() => document.getElementById('pw-input').focus(), 50);
+  document.getElementById('btn-editor').classList.add('active');
+  document.getElementById('btn-chat').classList.remove('active');
+}
+
+function showEditor() {
+  document.getElementById('tab-chat').style.display = 'none';
+  document.getElementById('lock-overlay').style.display = 'none';
+  document.getElementById('tab-editor').style.display = 'flex';
+  document.getElementById('btn-editor').classList.add('active');
+  document.getElementById('btn-chat').classList.remove('active');
+}
+
+function checkPw() {
+  const val = document.getElementById('pw-input').value;
+  if (val === CORRECT_PW) {
+    editorUnlocked = true;
+    document.getElementById('lock-error').textContent = '';
+    showEditor();
+  } else {
+    document.getElementById('lock-error').textContent = 'Wrong password.';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
+  }
+}
+
+function lockEditor() {
+  editorUnlocked = false;
+  switchTab('chat');
+}
+
+// ---- PARSE RESPONSES ----
+function parseResponses(text) {
+  return text.split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('#'))
+    .map(l => {
+      const idx = l.indexOf('|');
+      if (idx === -1) return null;
+      const t = l.slice(0, idx).trim();
+      const r = l.slice(idx + 1).trim();
+      return (t && r) ? [t, r] : null;
+    })
+    .filter(Boolean);
+}
+
+function applyResponses() {
+  const text = document.getElementById('responses-editor').value;
+  trainingData = parseResponses(text);
+  localStorage.setItem('rubbot_responses', text);
+  buildNetwork();
+  document.getElementById('stat-pairs').textContent = trainingData.length;
+  document.getElementById('apply-status').textContent = '✅ Applied ' + trainingData.length + ' responses. Re-train for changes to take effect.';
+  setTimeout(() => document.getElementById('apply-status').textContent = '', 3000);
+}
+
+// ---- NEURAL NET ----
+let trainingData = [];
+let neuronPositions = { input:[], h1:[], h2:[], out:[] };
+let lastH1=[], lastH2=[], lastOut=[];
+let vocab=[], responses=[];
+let inputSize=0, hiddenSize=14, hiddenSize2=8, outputSize=0;
+let W1=[], W2=[], W3=[];
+let totalEpochs = 0;
+
+function rnd(){ return Math.random()*2-1; }
+
+function buildNetwork() {
+  vocab = [...new Set(trainingData.flatMap(p => p[0].split(" ")))];
+  responses = [...new Set(trainingData.map(p => p[1]))];
+  inputSize = vocab.length;
+  outputSize = responses.length;
+  W1 = Array.from({length:inputSize}, () => Array.from({length:hiddenSize}, rnd));
+  W2 = Array.from({length:hiddenSize}, () => Array.from({length:hiddenSize2}, rnd));
+  W3 = Array.from({length:hiddenSize2}, () => Array.from({length:outputSize}, rnd));
+  totalEpochs = 0;
+  document.getElementById('stat-epochs').textContent = 0;
+  drawBrain();
+}
+
+function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+function sigD(x){ return x*(1-x); }
+function clean(t){ return t.toLowerCase().replace(/[^\w\s]/g,""); }
+function vectorize(t){ const w=clean(t).split(" "); return vocab.map(v=>w.includes(v)?1:0); }
+function respVec(r){ return responses.map(x=>x===r?1:0); }
+
+function forward(inp){
+  const h1 = W1[0].map((_,j) => sigmoid(inp.reduce((s,v,i) => s+v*W1[i][j], 0)));
+  const h2 = W2[0].map((_,j) => sigmoid(h1.reduce((s,v,i) => s+v*W2[i][j], 0)));
+  const out = W3[0].map((_,j) => sigmoid(h2.reduce((s,v,i) => s+v*W3[i][j], 0)));
+  return {h1,h2,out};
+}
+
+async function train() {
+  if (!trainingData.length) { addBotMsg("No responses loaded yet."); return; }
+  const epochs = parseInt(document.getElementById("epochs").value);
+  const btn = document.querySelector('.train-row button');
+  btn.textContent = 'Training...'; btn.disabled = true;
+  document.getElementById('train-status').textContent = '';
+
+  const CHUNK = 100;
+  for (let e = 0; e < epochs; e++) {
+    if (e % CHUNK === 0) {
+      document.getElementById('train-status').textContent = Math.round(e/epochs*100) + '%';
+      await new Promise(r => setTimeout(r, 0));
+    }
+    for (let [inT, outT] of trainingData) {
+      const inp = vectorize(inT), target = respVec(outT);
+      const {h1,h2,out} = forward(inp);
+      lastH1=h1; lastH2=h2; lastOut=out;
+      const dO  = out.map((o,i) => (target[i]-o)*sigD(o));
+      const dH2 = h2.map((h,i) => dO.reduce((s,d,j) => s+d*W3[i][j],0)*sigD(h));
+      const dH1 = h1.map((h,i) => dH2.reduce((s,d,j) => s+d*W2[i][j],0)*sigD(h));
+      for(let i=0;i<hiddenSize2;i++) for(let j=0;j<outputSize;j++) W3[i][j]+=0.1*dO[j]*h2[i];
+      for(let i=0;i<hiddenSize;i++) for(let j=0;j<hiddenSize2;j++) W2[i][j]+=0.1*dH2[j]*h1[i];
+      for(let i=0;i<inputSize;i++) for(let j=0;j<hiddenSize;j++) W1[i][j]+=0.1*dH1[j]*inp[i];
+    }
+  }
+  totalEpochs += epochs;
+  document.getElementById('stat-epochs').textContent = totalEpochs;
+  document.getElementById('train-status').textContent = 'Done!';
+  btn.textContent = 'Train'; btn.disabled = false;
+  drawBrain(lastH1, lastH2, lastOut);
+  addBotMsg("Training complete. I'm ready!");
+}
+
+// ---- MATH ----
+function tryMath(text) {
+  let c = text.toLowerCase().trim()
+    .replace(/\bplus\b/g,'+').replace(/\bminus\b/g,'-')
+    .replace(/\btimes\b/g,'*').replace(/\bmultiplied by\b/g,'*')
+    .replace(/\bdivided by\b/g,'/').replace(/\bover\b/g,'/')
+    .replace(/\bsquared\b/g,'**2').replace(/\bcubed\b/g,'**3')
+    .replace(/\bto the power of\b/g,'**')
+    .replace(/\bwhat is\b/g,'').replace(/\bwhats\b/g,'')
+    .replace(/\bcalculate\b/g,'').replace(/\bsolve\b/g,'')
+    .replace(/[?=]/g,'').trim().replace(/\^/g,'**');
+  if (!/^[\d\s\+\-\*\/\.\(\)\%\^]+$/.test(c)) return null;
+  try {
+    const r = Function('"use strict"; return (' + c + ')')();
+    if (typeof r === 'number' && isFinite(r)) return parseFloat(r.toFixed(10)).toString();
+  } catch(e) {}
+  return null;
+}
+
+// ---- CHAT ----
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function addUserMsg(text){
+  const chat = document.getElementById("chat");
+  const d = document.createElement("div");
+  d.className = "msg msg-user";
+  d.innerHTML = '<span>You: ' + text + '</span>';
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addBotMsg(text){
+  const chat = document.getElementById("chat");
+  const d = document.createElement("div");
+  d.className = "msg msg-bot";
+  d.innerHTML = '<span>Bot: ' + text + '</span>';
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function thinkingAnim(){
+  const chat = document.getElementById("chat");
+  const d = document.createElement("div");
+  d.className = "msg msg-bot msg-thinking";
+  d.innerHTML = '<span id="tdot">Bot: Thinking.</span>';
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  const dots = ["Bot: Thinking.", "Bot: Thinking..", "Bot: Thinking..."];
+  for (let s of dots){ document.getElementById("tdot").textContent = s; await sleep(350); }
+  chat.removeChild(d);
+}
+
+async function typeMsg(text){
+  const chat = document.getElementById("chat");
+  const d = document.createElement("div");
+  d.className = "msg msg-bot";
+  d.innerHTML = '<span></span>';
+  chat.appendChild(d);
+  const span = d.querySelector("span");
+  let out = "Bot: ";
+  for (let ch of text){ out += ch; span.textContent = out; await sleep(30); }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function animateFlow(from, to){
+  const canvas = document.getElementById("brain");
+  const ctx = canvas.getContext("2d");
+  for (let s=0; s<=16; s++){
+    drawBrain(lastH1, lastH2, lastOut);
+    const t = s/16;
+    for (let a of neuronPositions[from]){
+      for (let b of neuronPositions[to]){
+        const x=a.x+(b.x-a.x)*t, y=a.y+(b.y-a.y)*t;
+        ctx.beginPath(); ctx.arc(x,y,4,0,2*Math.PI);
+        ctx.fillStyle="blue"; ctx.fill();
+      }
+    }
+    await sleep(16);
+  }
+}
+
+async function send(){
+  const el = document.getElementById("input");
+  const text = el.value.trim();
+  if (!text) return;
+  el.value = "";
+  addUserMsg(text);
+
+  const math = tryMath(text);
+  if (math !== null){
+    await thinkingAnim();
+    await typeMsg("The answer is " + math + " 🧮");
+    return;
+  }
+
+  const inp = vectorize(text);
+  if (inp.reduce((a,b)=>a+b,0) === 0){
+    await thinkingAnim();
+    await typeMsg("I don't understand.");
+    return;
+  }
+
+  await thinkingAnim();
+  const {h1,h2,out} = forward(inp);
+  lastH1=h1; lastH2=h2; lastOut=out;
+  drawBrain(h1,h2,out);
+  await animateFlow("input","h1");
+  await animateFlow("h1","h2");
+  await animateFlow("h2","out");
+
+  const maxIdx = out.indexOf(Math.max(...out));
+  await typeMsg(responses[maxIdx]);
+}
+
+// ---- DRAW ----
+function drawBrain(h1=[], h2=[], out=[]){
+  const canvas = document.getElementById("brain");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const ys = [40, 130, 220, 300];
+  const counts = [inputSize||8, hiddenSize, hiddenSize2, outputSize||8];
+  const vals = [Array(counts[0]).fill(0.5), h1, h2, out];
+  const maxN = Math.max(...counts);
+  const spacing = Math.min((W-40)/(maxN+1), 30);
+
+  // connections
+  for (let layer=0; layer<3; layer++){
+    const fc=counts[layer], tc=counts[layer+1];
+    const fw=spacing*(fc-1), tw=spacing*(tc-1);
+    const fx=(W-fw)/2, tx=(W-tw)/2;
+    for (let i=0;i<fc;i++) for(let j=0;j<tc;j++){
+      ctx.beginPath();
+      ctx.moveTo(fx+i*spacing, ys[layer]);
+      ctx.lineTo(tx+j*spacing, ys[layer+1]);
+      ctx.strokeStyle="rgba(0,0,0,0.08)";
+      ctx.lineWidth=0.5; ctx.stroke();
+    }
+  }
+
+  // neurons
+  const keys = ["input","h1","h2","out"];
+  for (let layer=0; layer<4; layer++){
+    const count = counts[layer];
+    const lw = spacing*(count-1);
+    const sx = (W-lw)/2;
+    neuronPositions[keys[layer]] = [];
+    for (let i=0; i<count; i++){
+      const x=sx+i*spacing, y=ys[layer];
+      const v=(vals[layer][i]!==undefined)?vals[layer][i]:0.5;
+      neuronPositions[keys[layer]].push({x,y});
+      ctx.beginPath(); ctx.arc(x,y,10,0,2*Math.PI);
+      ctx.fillStyle=`rgb(${Math.round(v*255)},0,0)`;
+      ctx.fill();
+      ctx.strokeStyle="rgba(0,0,0,0.2)";
+      ctx.lineWidth=0.5; ctx.stroke();
+    }
+  }
+
+  // labels
+  ctx.fillStyle="#555"; ctx.font="11px Arial"; ctx.textAlign="center";
+  ctx.fillText("Input",   W/2, ys[0]-18);
+  ctx.fillText("Hidden 1",W/2, ys[1]-18);
+  ctx.fillText("Hidden 2",W/2, ys[2]-18);
+  ctx.fillText("Output",  W/2, ys[3]-18);
+}
+
+// ---- INIT ----
+window.addEventListener('load', () => {
+  // Resize canvas to match container
+  const canvas = document.getElementById("brain");
+  const side = canvas.parentElement;
+  canvas.width = side.clientWidth - 32;
+
+  // Load saved responses or use defaults
+  const saved = localStorage.getItem('rubbot_responses');
+  const text = saved || DEFAULT_RESPONSES;
+  document.getElementById('responses-editor').value = text;
+  trainingData = parseResponses(text);
+  document.getElementById('stat-pairs').textContent = trainingData.length;
+  buildNetwork();
+
+  addBotMsg("Train me first, then type something. Try 'hello' or ask math like 2+2.");
+});
+
+window.addEventListener('resize', () => {
+  const canvas = document.getElementById("brain");
+  canvas.width = canvas.parentElement.clientWidth - 32;
+  drawBrain(lastH1, lastH2, lastOut);
+});
+</script>
+</body>
+</html>
