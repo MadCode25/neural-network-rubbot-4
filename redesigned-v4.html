@@ -80,6 +80,11 @@ button {
 button:hover { background: #eee; }
 button:active { background: #ddd; }
 
+footer {
+    padding: 10px;
+    color: grey;
+}
+
 .note {
   font-size: 12px;
   color: #666;
@@ -136,6 +141,8 @@ button:active { background: #ddd; }
 .msg-user span { background: #e8e8ff; padding: 5px 10px; border-radius: 8px; display: inline-block; max-width: 85%; }
 .msg-bot  span { background: #f0f0f0; padding: 5px 10px; border-radius: 8px; display: inline-block; max-width: 85%; }
 .msg-thinking span { color: #888; font-style: italic; }
+.msg-sys { font-style: italic; color: grey; }
+.msg-sys span { background: #f0f0f0; padding: 5px 10px; border-radius: 8px; display: inline-block; max-width: 85%; }
 
 .chat-input-row {
   display: flex;
@@ -282,6 +289,9 @@ button:active { background: #ddd; }
       <div id="apply-status" style="font-size:12px;color:green;min-height:16px;"></div>
     </div>
 
+  </div>
+  <div style="position: absolute; left: 132vh; top: 100vh; font-size: 12px;">
+    <footer>2026 AmadOS | Visit the repository on Github (MadCode_25)</footer>
   </div>
 </div>
 
@@ -524,6 +534,18 @@ async function typeMsg(text){
   chat.scrollTop = chat.scrollHeight;
 }
 
+async function sysmsg(text){
+     const chat = document.getElementById("chat");
+  const d = document.createElement("div");
+  d.className = "msg msg-sys";
+  d.innerHTML = '<span></span>';
+  chat.appendChild(d);
+  const span = d.querySelector("span");
+  let out = "#: ";
+  for (let ch of text){ out += ch; span.textContent = out; await sleep(30); }
+  chat.scrollTop = chat.scrollHeight;
+}
+
 async function animateFlow(from, to){
   const canvas = document.getElementById("brain");
   const ctx = canvas.getContext("2d");
@@ -551,14 +573,15 @@ async function send(){
   const math = tryMath(text);
   if (math !== null){
     await thinkingAnim();
-    await typeMsg("The answer is " + math + " 🧮");
+    await typeMsg("Hmm, it's " + math);
     return;
   }
 
   const inp = vectorize(text);
   if (inp.reduce((a,b)=>a+b,0) === 0){
     await thinkingAnim();
-    await typeMsg("I don't understand.");
+    await typeMsg("I dunno.");
+    await sysmsg("Responses are limited. Please use the 'Edit Responses' tab.")
     return;
   }
 
